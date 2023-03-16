@@ -95,6 +95,9 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
     mapping(int16 => uint256) public override tickBitmap;
     /// @inheritdoc IUniswapV3PoolState
     mapping(bytes32 => Position.Info) public override positions;
+
+    /// @dev Mapping from user-provided tickId to tick value
+    mapping(bytes32 => int24) public tickIdToTick;
     /// @inheritdoc IUniswapV3PoolState
     Oracle.Observation[65535] public override observations;
 
@@ -132,6 +135,21 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
     /// @dev Returns the block timestamp truncated to 32 bits, i.e. mod 2**32. This method is overridden in tests.
     function _blockTimestamp() internal view virtual returns (uint32) {
         return uint32(block.timestamp); // truncation is desired
+    }
+
+    /// @dev Registers a tickId for a tick value, or validates existing mapping
+    /// @param tickId The user-provided unique identifier for the tick
+    /// @param tick The tick value to associate with the tickId
+    function _registerTickId(bytes32 tickId, int24 tick) private {
+        int24 existingTick = tickIdToTick[tickId];
+
+        if (existingTick == 0) {
+            // This tickId has never been used, register it
+            tickIdToTick[tickId] = tick;
+        } else {
+            // This tickId was already registered, verify it maps to the same tick
+            require(existingTick == tick, 'TID: tickId maps to different tick');
+        }
     }
 
     /// @dev Get the pool's balance of token0
@@ -291,6 +309,9 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
     struct ModifyPositionParams {
         // the address that owns the position
         address owner;
+        // the user-provided tickIds for the position
+        bytes32 tickLowerId;
+        bytes32 tickUpperId;
         // the lower and upper tick of the position
         int24 tickLower;
         int24 tickUpper;
@@ -318,6 +339,8 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
 
         position = _updatePosition(
             params.owner,
+            params.tickLowerId,
+            params.tickUpperId,
             params.tickLower,
             params.tickUpper,
             params.liquidityDelta,
@@ -373,17 +396,21 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
 
     /// @dev Gets and updates a position with the given liquidity delta
     /// @param owner the owner of the position
+    /// @param tickLowerId the tickId for the lower tick of the position's tick range
+    /// @param tickUpperId the tickId for the upper tick of the position's tick range
     /// @param tickLower the lower tick of the position's tick range
     /// @param tickUpper the upper tick of the position's tick range
     /// @param tick the current tick, passed to avoid sloads
     function _updatePosition(
         address owner,
+        bytes32 tickLowerId,
+        bytes32 tickUpperId,
         int24 tickLower,
         int24 tickUpper,
         int128 liquidityDelta,
         int24 tick
     ) private returns (Position.Info storage position) {
-        position = positions.get(owner, tickLower, tickUpper);
+        position = positions.get(owner, tickLowerId, tickUpperId);
 
         uint256 _feeGrowthGlobal0X128 = feeGrowthGlobal0X128; // SLOAD for gas optimization
         uint256 _feeGrowthGlobal1X128 = feeGrowthGlobal1X128; // SLOAD for gas optimization
@@ -456,16 +483,25 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
     /// @dev noDelegateCall is applied indirectly via _modifyPosition
     function mint(
         address recipient,
+        bytes32 tickLowerId,
+        bytes32 tickUpperId,
         int24 tickLower,
         int24 tickUpper,
         uint128 amount,
         bytes calldata data
     ) external override lock returns (uint256 amount0, uint256 amount1) {
         require(amount > 0);
+
+        // Register tickIds if this is the first time these ticks are being initialized
+        _registerTickId(tickLowerId, tickLower);
+        _registerTickId(tickUpperId, tickUpper);
+
         (, int256 amount0Int, int256 amount1Int) =
             _modifyPosition(
                 ModifyPositionParams({
                     owner: recipient,
+                    tickLowerId: tickLowerId,
+                    tickUpperId: tickUpperId,
                     tickLower: tickLower,
                     tickUpper: tickUpper,
                     liquidityDelta: int256(amount).toInt128()
@@ -489,13 +525,19 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
     /// @inheritdoc IUniswapV3PoolActions
     function collect(
         address recipient,
+        bytes32 tickLowerId,
+        bytes32 tickUpperId,
         int24 tickLower,
         int24 tickUpper,
         uint128 amount0Requested,
         uint128 amount1Requested
     ) external override lock returns (uint128 amount0, uint128 amount1) {
+        // Validate that the provided tickIds match the tick values
+        require(tickIdToTick[tickLowerId] == tickLower, 'TID: tickLowerId mismatch');
+        require(tickIdToTick[tickUpperId] == tickUpper, 'TID: tickUpperId mismatch');
+
         // we don't need to checkTicks here, because invalid positions will never have non-zero tokensOwed{0,1}
-        Position.Info storage position = positions.get(msg.sender, tickLower, tickUpper);
+        Position.Info storage position = positions.get(msg.sender, tickLowerId, tickUpperId);
 
         amount0 = amount0Requested > position.tokensOwed0 ? position.tokensOwed0 : amount0Requested;
         amount1 = amount1Requested > position.tokensOwed1 ? position.tokensOwed1 : amount1Requested;
@@ -515,14 +557,22 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
     /// @inheritdoc IUniswapV3PoolActions
     /// @dev noDelegateCall is applied indirectly via _modifyPosition
     function burn(
+        bytes32 tickLowerId,
+        bytes32 tickUpperId,
         int24 tickLower,
         int24 tickUpper,
         uint128 amount
     ) external override lock returns (uint256 amount0, uint256 amount1) {
+        // Validate that the provided tickIds match the tick values
+        require(tickIdToTick[tickLowerId] == tickLower, 'TID: tickLowerId mismatch');
+        require(tickIdToTick[tickUpperId] == tickUpper, 'TID: tickUpperId mismatch');
+
         (Position.Info storage position, int256 amount0Int, int256 amount1Int) =
             _modifyPosition(
                 ModifyPositionParams({
                     owner: msg.sender,
+                    tickLowerId: tickLowerId,
+                    tickUpperId: tickUpperId,
                     tickLower: tickLower,
                     tickUpper: tickUpper,
                     liquidityDelta: -int256(amount).toInt128()

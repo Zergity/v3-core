@@ -24,16 +24,16 @@ library Position {
     /// @notice Returns the Info struct of a position, given an owner and position boundaries
     /// @param self The mapping containing all user positions
     /// @param owner The address of the position owner
-    /// @param tickLower The lower tick boundary of the position
-    /// @param tickUpper The upper tick boundary of the position
+    /// @param tickLowerId The tickId for the lower tick boundary of the position
+    /// @param tickUpperId The tickId for the upper tick boundary of the position
     /// @return position The position info struct of the given owners' position
     function get(
         mapping(bytes32 => Info) storage self,
         address owner,
-        int24 tickLower,
-        int24 tickUpper
+        bytes32 tickLowerId,
+        bytes32 tickUpperId
     ) internal view returns (Position.Info storage position) {
-        position = self[keccak256(abi.encodePacked(owner, tickLower, tickUpper))];
+        position = self[keccak256(abi.encodePacked(owner, tickLowerId, tickUpperId))];
     }
 
     /// @notice Credits accumulated fees to a user's position
