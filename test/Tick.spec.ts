@@ -71,7 +71,6 @@ describe('Tick', () => {
         tickCumulativeOutside: 0,
         secondsOutside: 0,
         initialized: true,
-        id: '0x' + '0'.repeat(64),
       })
       const { feeGrowthInside0X128, feeGrowthInside1X128 } = await tickTest.getFeeGrowthInside(-2, 2, 0, 15, 15)
       expect(feeGrowthInside0X128).to.eq(13)
@@ -88,7 +87,6 @@ describe('Tick', () => {
         tickCumulativeOutside: 0,
         secondsOutside: 0,
         initialized: true,
-        id: '0x' + '0'.repeat(64),
       })
       const { feeGrowthInside0X128, feeGrowthInside1X128 } = await tickTest.getFeeGrowthInside(-2, 2, 0, 15, 15)
       expect(feeGrowthInside0X128).to.eq(13)
@@ -105,7 +103,6 @@ describe('Tick', () => {
         tickCumulativeOutside: 0,
         secondsOutside: 0,
         initialized: true,
-        id: '0x' + '0'.repeat(64),
       })
       await tickTest.setTick(2, {
         feeGrowthOutside0X128: 4,
@@ -116,7 +113,6 @@ describe('Tick', () => {
         tickCumulativeOutside: 0,
         secondsOutside: 0,
         initialized: true,
-        id: '0x' + '0'.repeat(64),
       })
       const { feeGrowthInside0X128, feeGrowthInside1X128 } = await tickTest.getFeeGrowthInside(-2, 2, 0, 15, 15)
       expect(feeGrowthInside0X128).to.eq(9)
@@ -133,7 +129,6 @@ describe('Tick', () => {
         tickCumulativeOutside: 0,
         secondsOutside: 0,
         initialized: true,
-        id: '0x' + '0'.repeat(64),
       })
       await tickTest.setTick(2, {
         feeGrowthOutside0X128: 3,
@@ -144,7 +139,6 @@ describe('Tick', () => {
         tickCumulativeOutside: 0,
         secondsOutside: 0,
         initialized: true,
-        id: '0x' + '0'.repeat(64),
       })
       const { feeGrowthInside0X128, feeGrowthInside1X128 } = await tickTest.getFeeGrowthInside(-2, 2, 0, 15, 15)
       expect(feeGrowthInside0X128).to.eq(16)
@@ -154,23 +148,28 @@ describe('Tick', () => {
 
   describe('#update', async () => {
     it('flips from zero to nonzero', async () => {
-      expect(await tickTest.callStatic.update(0, 0, 1, 0, 0, 0, 0, 0, false, 3)).to.eq(true)
+      const { flipped } = await tickTest.callStatic.update(0, 0, 1, 0, 0, 0, 0, 0, false, 3)
+      expect(flipped).to.eq(true)
     })
     it('does not flip from nonzero to greater nonzero', async () => {
       await tickTest.update(0, 0, 1, 0, 0, 0, 0, 0, false, 3)
-      expect(await tickTest.callStatic.update(0, 0, 1, 0, 0, 0, 0, 0, false, 3)).to.eq(false)
+      const { flipped } = await tickTest.callStatic.update(0, 0, 1, 0, 0, 0, 0, 0, false, 3)
+      expect(flipped).to.eq(false)
     })
     it('flips from nonzero to zero', async () => {
       await tickTest.update(0, 0, 1, 0, 0, 0, 0, 0, false, 3)
-      expect(await tickTest.callStatic.update(0, 0, -1, 0, 0, 0, 0, 0, false, 3)).to.eq(true)
+      const { flipped } = await tickTest.callStatic.update(0, 0, -1, 0, 0, 0, 0, 0, false, 3)
+      expect(flipped).to.eq(true)
     })
     it('does not flip from nonzero to lesser nonzero', async () => {
       await tickTest.update(0, 0, 2, 0, 0, 0, 0, 0, false, 3)
-      expect(await tickTest.callStatic.update(0, 0, -1, 0, 0, 0, 0, 0, false, 3)).to.eq(false)
+      const { flipped } = await tickTest.callStatic.update(0, 0, -1, 0, 0, 0, 0, 0, false, 3)
+      expect(flipped).to.eq(false)
     })
     it('does not flip from nonzero to lesser nonzero', async () => {
       await tickTest.update(0, 0, 2, 0, 0, 0, 0, 0, false, 3)
-      expect(await tickTest.callStatic.update(0, 0, -1, 0, 0, 0, 0, 0, false, 3)).to.eq(false)
+      const { flipped } = await tickTest.callStatic.update(0, 0, -1, 0, 0, 0, 0, 0, false, 3)
+      expect(flipped).to.eq(false)
     })
     it('reverts if total liquidity gross is greater than max', async () => {
       await tickTest.update(0, 0, 2, 0, 0, 0, 0, 0, false, 3)
@@ -256,7 +255,6 @@ describe('Tick', () => {
         tickCumulativeOutside: 6,
         secondsOutside: 7,
         initialized: true,
-        id: '0x' + '0'.repeat(64),
       })
       await tickTest.clear(2)
       const {
@@ -291,7 +289,6 @@ describe('Tick', () => {
         tickCumulativeOutside: 6,
         secondsOutside: 7,
         initialized: true,
-        id: '0x' + '0'.repeat(64),
       })
       await tickTest.cross(2, 7, 9, 8, 15, 10)
       const {
@@ -317,7 +314,6 @@ describe('Tick', () => {
         tickCumulativeOutside: 6,
         secondsOutside: 7,
         initialized: true,
-        id: '0x' + '0'.repeat(64),
       })
       await tickTest.cross(2, 7, 9, 8, 15, 10)
       await tickTest.cross(2, 7, 9, 8, 15, 10)

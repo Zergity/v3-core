@@ -61,7 +61,6 @@ interface IUniswapV3PoolState {
     /// Outside values can only be used if the tick is initialized, i.e. if liquidityGross is greater than 0.
     /// In addition, these values are only relative and must be used only in comparison to previous snapshots for
     /// a specific position.
-    /// id unique identifier for this tick
     function ticks(int24 tick)
         external
         view
@@ -73,8 +72,7 @@ interface IUniswapV3PoolState {
             int56 tickCumulativeOutside,
             uint160 secondsPerLiquidityOutsideX128,
             uint32 secondsOutside,
-            bool initialized,
-            bytes32 id
+            bool initialized
         );
 
     /// @notice Returns 256 packed tick initialized boolean values. See TickBitmap for more information

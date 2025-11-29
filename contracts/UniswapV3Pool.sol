@@ -91,6 +91,10 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
 
     /// @inheritdoc IUniswapV3PoolState
     mapping(int24 => Tick.Info) public override ticks;
+    /// @notice Mapping from unique tick identifier to tick
+    mapping(bytes32 => int24) public tickIds;
+    /// @dev Internal mapping to track tick to its identifier for lookups
+    mapping(int24 => bytes32) internal tickToId;
     /// @inheritdoc IUniswapV3PoolState
     mapping(int16 => uint256) public override tickBitmap;
     /// @inheritdoc IUniswapV3PoolState
@@ -403,30 +407,45 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
                     slot0.observationCardinality
                 );
 
-            flippedLower = ticks.update(
-                tickLower,
-                tick,
-                liquidityDelta,
-                _feeGrowthGlobal0X128,
-                _feeGrowthGlobal1X128,
-                secondsPerLiquidityCumulativeX128,
-                tickCumulative,
-                time,
-                false,
-                maxLiquidityPerTick
-            );
-            flippedUpper = ticks.update(
-                tickUpper,
-                tick,
-                liquidityDelta,
-                _feeGrowthGlobal0X128,
-                _feeGrowthGlobal1X128,
-                secondsPerLiquidityCumulativeX128,
-                tickCumulative,
-                time,
-                true,
-                maxLiquidityPerTick
-            );
+            {
+                bytes32 tickIdNew;
+                (flippedLower, tickIdNew) = ticks.update(
+                    tickLower,
+                    tick,
+                    liquidityDelta,
+                    _feeGrowthGlobal0X128,
+                    _feeGrowthGlobal1X128,
+                    secondsPerLiquidityCumulativeX128,
+                    tickCumulative,
+                    time,
+                    false,
+                    maxLiquidityPerTick
+                );
+                if (tickIdNew != bytes32(0)) {
+                    tickIds[tickIdNew] = tickLower;
+                    tickToId[tickLower] = tickIdNew;
+                }
+            }
+
+            {
+                bytes32 tickIdNew;
+                (flippedUpper, tickIdNew) = ticks.update(
+                    tickUpper,
+                    tick,
+                    liquidityDelta,
+                    _feeGrowthGlobal0X128,
+                    _feeGrowthGlobal1X128,
+                    secondsPerLiquidityCumulativeX128,
+                    tickCumulative,
+                    time,
+                    true,
+                    maxLiquidityPerTick
+                );
+                if (tickIdNew != bytes32(0)) {
+                    tickIds[tickIdNew] = tickUpper;
+                    tickToId[tickUpper] = tickIdNew;
+                }
+            }
 
             if (flippedLower) {
                 tickBitmap.flipTick(tickLower, tickSpacing);
@@ -436,19 +455,15 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
             }
         }
 
-        // Get tick IDs for validation and storage
-        Tick.Info storage lowerTick = ticks[tickLower];
-        Tick.Info storage upperTick = ticks[tickUpper];
-
         // For new positions, store tick IDs; for existing positions, validate them
         if (position.liquidity == 0 && liquidityDelta > 0) {
             // New position: store the first 16 bytes of tick IDs
-            position.tickLowerId = bytes16(lowerTick.id);
-            position.tickUpperId = bytes16(upperTick.id);
+            position.tickLowerId = bytes16(tickToId[tickLower]);
+            position.tickUpperId = bytes16(tickToId[tickUpper]);
         } else if (position.liquidity > 0) {
             // Existing position: validate first 16 bytes of tick IDs match
-            require(position.tickLowerId == bytes16(lowerTick.id), 'Invalid lower tick ID');
-            require(position.tickUpperId == bytes16(upperTick.id), 'Invalid upper tick ID');
+            require(position.tickLowerId == bytes16(tickToId[tickLower]), 'Invalid lower tick ID');
+            require(position.tickUpperId == bytes16(tickToId[tickUpper]), 'Invalid upper tick ID');
         }
 
         (uint256 feeGrowthInside0X128, uint256 feeGrowthInside1X128) =

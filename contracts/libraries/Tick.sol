@@ -34,8 +34,6 @@ library Tick {
         // true iff the tick is initialized, i.e. the value is exactly equivalent to the expression liquidityGross != 0
         // these 8 bits are set to prevent fresh sstores when crossing newly initialized ticks
         bool initialized;
-        // unique identifier for this tick, computed as keccak256(abi.encodePacked(tick, feeGrowthGlobal0X128))
-        bytes32 id;
     }
 
     /// @notice Derives max liquidity per tick from given tick spacing
@@ -109,6 +107,7 @@ library Tick {
     /// @param upper true for updating a position's upper tick, or false for updating a position's lower tick
     /// @param maxLiquidity The maximum liquidity allocation for a single tick
     /// @return flipped Whether the tick was flipped from initialized to uninitialized, or vice versa
+    /// @return tickId The unique identifier for this tick if it was just initialized, otherwise bytes32(0)
     function update(
         mapping(int24 => Tick.Info) storage self,
         int24 tick,
@@ -121,7 +120,7 @@ library Tick {
         uint32 time,
         bool upper,
         uint128 maxLiquidity
-    ) internal returns (bool flipped) {
+    ) internal returns (bool flipped, bytes32 tickId) {
         Tick.Info storage info = self[tick];
 
         uint128 liquidityGrossBefore = info.liquidityGross;
@@ -141,8 +140,8 @@ library Tick {
                 info.secondsOutside = time;
             }
             info.initialized = true;
-            // compute and store unique tick ID
-            info.id = keccak256(abi.encodePacked(tick, feeGrowthGlobal0X128));
+            // compute unique tick ID
+            tickId = keccak256(abi.encodePacked(tick, feeGrowthGlobal0X128));
         }
 
         info.liquidityGross = liquidityGrossAfter;

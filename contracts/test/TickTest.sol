@@ -38,7 +38,7 @@ contract TickTest {
         uint32 time,
         bool upper,
         uint128 maxLiquidity
-    ) external returns (bool flipped) {
+    ) external returns (bool flipped, bytes32 tickId) {
         return
             ticks.update(
                 tick,
