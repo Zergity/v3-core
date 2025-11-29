@@ -71,6 +71,7 @@ describe('Tick', () => {
         tickCumulativeOutside: 0,
         secondsOutside: 0,
         initialized: true,
+        id: '0x' + '0'.repeat(64),
       })
       const { feeGrowthInside0X128, feeGrowthInside1X128 } = await tickTest.getFeeGrowthInside(-2, 2, 0, 15, 15)
       expect(feeGrowthInside0X128).to.eq(13)
@@ -87,6 +88,7 @@ describe('Tick', () => {
         tickCumulativeOutside: 0,
         secondsOutside: 0,
         initialized: true,
+        id: '0x' + '0'.repeat(64),
       })
       const { feeGrowthInside0X128, feeGrowthInside1X128 } = await tickTest.getFeeGrowthInside(-2, 2, 0, 15, 15)
       expect(feeGrowthInside0X128).to.eq(13)
@@ -103,6 +105,7 @@ describe('Tick', () => {
         tickCumulativeOutside: 0,
         secondsOutside: 0,
         initialized: true,
+        id: '0x' + '0'.repeat(64),
       })
       await tickTest.setTick(2, {
         feeGrowthOutside0X128: 4,
@@ -113,6 +116,7 @@ describe('Tick', () => {
         tickCumulativeOutside: 0,
         secondsOutside: 0,
         initialized: true,
+        id: '0x' + '0'.repeat(64),
       })
       const { feeGrowthInside0X128, feeGrowthInside1X128 } = await tickTest.getFeeGrowthInside(-2, 2, 0, 15, 15)
       expect(feeGrowthInside0X128).to.eq(9)
@@ -129,6 +133,7 @@ describe('Tick', () => {
         tickCumulativeOutside: 0,
         secondsOutside: 0,
         initialized: true,
+        id: '0x' + '0'.repeat(64),
       })
       await tickTest.setTick(2, {
         feeGrowthOutside0X128: 3,
@@ -139,6 +144,7 @@ describe('Tick', () => {
         tickCumulativeOutside: 0,
         secondsOutside: 0,
         initialized: true,
+        id: '0x' + '0'.repeat(64),
       })
       const { feeGrowthInside0X128, feeGrowthInside1X128 } = await tickTest.getFeeGrowthInside(-2, 2, 0, 15, 15)
       expect(feeGrowthInside0X128).to.eq(16)
@@ -250,6 +256,7 @@ describe('Tick', () => {
         tickCumulativeOutside: 6,
         secondsOutside: 7,
         initialized: true,
+        id: '0x' + '0'.repeat(64),
       })
       await tickTest.clear(2)
       const {
@@ -284,6 +291,7 @@ describe('Tick', () => {
         tickCumulativeOutside: 6,
         secondsOutside: 7,
         initialized: true,
+        id: '0x' + '0'.repeat(64),
       })
       await tickTest.cross(2, 7, 9, 8, 15, 10)
       const {
@@ -309,6 +317,7 @@ describe('Tick', () => {
         tickCumulativeOutside: 6,
         secondsOutside: 7,
         initialized: true,
+        id: '0x' + '0'.repeat(64),
       })
       await tickTest.cross(2, 7, 9, 8, 15, 10)
       await tickTest.cross(2, 7, 9, 8, 15, 10)
