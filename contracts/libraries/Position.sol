@@ -19,6 +19,9 @@ library Position {
         // the fees owed to the position owner in token0/token1
         uint128 tokensOwed0;
         uint128 tokensOwed1;
+        // unique identifiers for the lower and upper ticks (first 16 bytes only)
+        bytes16 tickLowerId;
+        bytes16 tickUpperId;
     }
 
     /// @notice Returns the Info struct of a position, given an owner and position boundaries

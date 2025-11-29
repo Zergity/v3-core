@@ -34,6 +34,8 @@ library Tick {
         // true iff the tick is initialized, i.e. the value is exactly equivalent to the expression liquidityGross != 0
         // these 8 bits are set to prevent fresh sstores when crossing newly initialized ticks
         bool initialized;
+        // unique identifier for this tick, computed as keccak256(abi.encodePacked(tick, feeGrowthGlobal0X128))
+        bytes32 id;
     }
 
     /// @notice Derives max liquidity per tick from given tick spacing
@@ -139,6 +141,8 @@ library Tick {
                 info.secondsOutside = time;
             }
             info.initialized = true;
+            // compute and store unique tick ID
+            info.id = keccak256(abi.encodePacked(tick, feeGrowthGlobal0X128));
         }
 
         info.liquidityGross = liquidityGrossAfter;

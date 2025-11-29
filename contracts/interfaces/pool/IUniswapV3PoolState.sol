@@ -61,6 +61,7 @@ interface IUniswapV3PoolState {
     /// Outside values can only be used if the tick is initialized, i.e. if liquidityGross is greater than 0.
     /// In addition, these values are only relative and must be used only in comparison to previous snapshots for
     /// a specific position.
+    /// id unique identifier for this tick
     function ticks(int24 tick)
         external
         view
@@ -72,7 +73,8 @@ interface IUniswapV3PoolState {
             int56 tickCumulativeOutside,
             uint160 secondsPerLiquidityOutsideX128,
             uint32 secondsOutside,
-            bool initialized
+            bool initialized,
+            bytes32 id
         );
 
     /// @notice Returns 256 packed tick initialized boolean values. See TickBitmap for more information
@@ -85,6 +87,8 @@ interface IUniswapV3PoolState {
     /// Returns feeGrowthInside1LastX128 fee growth of token1 inside the tick range as of the last mint/burn/poke,
     /// Returns tokensOwed0 the computed amount of token0 owed to the position as of the last mint/burn/poke,
     /// Returns tokensOwed1 the computed amount of token1 owed to the position as of the last mint/burn/poke
+    /// Returns tickLowerId unique identifier for the lower tick (first 16 bytes)
+    /// Returns tickUpperId unique identifier for the upper tick (first 16 bytes)
     function positions(bytes32 key)
         external
         view
@@ -93,7 +97,9 @@ interface IUniswapV3PoolState {
             uint256 feeGrowthInside0LastX128,
             uint256 feeGrowthInside1LastX128,
             uint128 tokensOwed0,
-            uint128 tokensOwed1
+            uint128 tokensOwed1,
+            bytes16 tickLowerId,
+            bytes16 tickUpperId
         );
 
     /// @notice Returns data about a specific observation index

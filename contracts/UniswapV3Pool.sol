@@ -436,6 +436,21 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
             }
         }
 
+        // Get tick IDs for validation and storage
+        Tick.Info storage lowerTick = ticks[tickLower];
+        Tick.Info storage upperTick = ticks[tickUpper];
+
+        // For new positions, store tick IDs; for existing positions, validate them
+        if (position.liquidity == 0 && liquidityDelta > 0) {
+            // New position: store the first 16 bytes of tick IDs
+            position.tickLowerId = bytes16(lowerTick.id);
+            position.tickUpperId = bytes16(upperTick.id);
+        } else if (position.liquidity > 0) {
+            // Existing position: validate first 16 bytes of tick IDs match
+            require(position.tickLowerId == bytes16(lowerTick.id), 'Invalid lower tick ID');
+            require(position.tickUpperId == bytes16(upperTick.id), 'Invalid upper tick ID');
+        }
+
         (uint256 feeGrowthInside0X128, uint256 feeGrowthInside1X128) =
             ticks.getFeeGrowthInside(tickLower, tickUpper, tick, _feeGrowthGlobal0X128, _feeGrowthGlobal1X128);
 
