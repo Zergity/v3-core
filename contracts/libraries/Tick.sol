@@ -156,6 +156,78 @@ library Tick {
         delete self[tick];
     }
 
+    /// @notice Moves liquidity from one tick to another when both ticks are on the same side of tickCurrent
+    /// @dev Both ticks must be either both <= tickCurrent or both > tickCurrent.
+    ///      When the destination tick is newly initialized, it inherits the source tick's outside values
+    ///      since they share the same reference point (same side of current price).
+    /// @param self The mapping containing all tick information for initialized ticks
+    /// @param tickFrom The tick to move liquidity from (must be initialized)
+    /// @param tickTo The tick to move liquidity to
+    /// @param tickCurrent The current tick
+    /// @param liquidityDelta The amount of liquidity to move (must be positive)
+    /// @param upper true if moving an upper tick boundary, false for lower tick boundary
+    /// @param maxLiquidity The maximum liquidity allocation for a single tick
+    /// @return flippedFrom Whether tickFrom was flipped from initialized to uninitialized
+    /// @return flippedTo Whether tickTo was flipped from uninitialized to initialized
+    function move(
+        mapping(int24 => Tick.Info) storage self,
+        int24 tickFrom,
+        int24 tickTo,
+        int24 tickCurrent,
+        int128 liquidityDelta,
+        bool upper,
+        uint128 maxLiquidity
+    ) internal returns (bool flippedFrom, bool flippedTo) {
+        // Both ticks must be on the same side of tickCurrent
+        require(
+            (tickFrom <= tickCurrent && tickTo <= tickCurrent) ||
+            (tickFrom > tickCurrent && tickTo > tickCurrent),
+            'TS'
+        );
+        require(liquidityDelta > 0, 'LD');
+
+        Tick.Info storage infoFrom = self[tickFrom];
+        Tick.Info storage infoTo = self[tickTo];
+
+        // Remove liquidity from source tick
+        uint128 liquidityGrossBeforeFrom = infoFrom.liquidityGross;
+        require(liquidityGrossBeforeFrom > 0, 'NI');
+
+        uint128 liquidityGrossAfterFrom = LiquidityMath.addDelta(liquidityGrossBeforeFrom, -liquidityDelta);
+
+        flippedFrom = (liquidityGrossAfterFrom == 0);
+
+        infoFrom.liquidityGross = liquidityGrossAfterFrom;
+        // Reverse the liquidityNet change: upper adds back, lower subtracts back
+        infoFrom.liquidityNet = upper
+            ? int256(infoFrom.liquidityNet).add(liquidityDelta).toInt128()
+            : int256(infoFrom.liquidityNet).sub(liquidityDelta).toInt128();
+
+        // Add liquidity to destination tick
+        uint128 liquidityGrossBeforeTo = infoTo.liquidityGross;
+        uint128 liquidityGrossAfterTo = LiquidityMath.addDelta(liquidityGrossBeforeTo, liquidityDelta);
+
+        require(liquidityGrossAfterTo <= maxLiquidity, 'LO');
+
+        flippedTo = (liquidityGrossBeforeTo == 0);
+
+        if (liquidityGrossBeforeTo == 0) {
+            // Initialize destination with source's outside values since both are on same side
+            infoTo.feeGrowthOutside0X128 = infoFrom.feeGrowthOutside0X128;
+            infoTo.feeGrowthOutside1X128 = infoFrom.feeGrowthOutside1X128;
+            infoTo.secondsPerLiquidityOutsideX128 = infoFrom.secondsPerLiquidityOutsideX128;
+            infoTo.tickCumulativeOutside = infoFrom.tickCumulativeOutside;
+            infoTo.secondsOutside = infoFrom.secondsOutside;
+            infoTo.initialized = true;
+        }
+
+        infoTo.liquidityGross = liquidityGrossAfterTo;
+        // Apply the liquidityNet change: upper subtracts, lower adds
+        infoTo.liquidityNet = upper
+            ? int256(infoTo.liquidityNet).sub(liquidityDelta).toInt128()
+            : int256(infoTo.liquidityNet).add(liquidityDelta).toInt128();
+    }
+
     /// @notice Transitions to next tick as needed by price movement
     /// @param self The mapping containing all tick information for initialized ticks
     /// @param tick The destination tick of the transition
