@@ -11,6 +11,7 @@ interface IUniswapV3PoolDerivedState {
     /// you must call it with secondsAgos = [3600, 0].
     /// @dev The time weighted average tick represents the geometric time weighted average price of the pool, in
     /// log base sqrt(1.0001) of token1 / token0. The TickMath library can be used to go from a tick value to a ratio.
+    /// @dev DEPRECATED: Oracle/TWAP functionality removed, returns zero values
     /// @param secondsAgos From how long ago each cumulative tick and liquidity value should be returned
     /// @return tickCumulatives Cumulative tick values as of each `secondsAgos` from the current block timestamp
     /// @return secondsPerLiquidityCumulativeX128s Cumulative seconds per liquidity-in-range value as of each `secondsAgos` from the current block
@@ -24,6 +25,7 @@ interface IUniswapV3PoolDerivedState {
     /// @dev Snapshots must only be compared to other snapshots, taken over a period for which a position existed.
     /// I.e., snapshots cannot be compared if a position is not held for the entire period between when the first
     /// snapshot is taken and the second snapshot is taken.
+    /// @dev DEPRECATED: Oracle/TWAP functionality removed, returns zero values
     /// @param tickLower The lower tick of the range
     /// @param tickUpper The upper tick of the range
     /// @return tickCumulativeInside The snapshot of the tick accumulator for the range

@@ -96,6 +96,7 @@ interface IUniswapV3PoolActions {
     ) external;
 
     /// @notice Increase the maximum number of price and liquidity observations that this pool will store
+    /// @dev DEPRECATED: Oracle/TWAP functionality removed, this is a no-op
     /// @dev This method is no-op if the pool already has an observationCardinalityNext greater than or equal to
     /// the input observationCardinalityNext.
     /// @param observationCardinalityNext The desired minimum number of observations for the pool to store

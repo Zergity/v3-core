@@ -96,6 +96,7 @@ interface IUniswapV3PoolEvents {
     );
 
     /// @notice Emitted by the pool for increases to the number of observations that can be stored
+    /// @dev DEPRECATED: Oracle/TWAP functionality removed, this event is no longer emitted
     /// @dev observationCardinalityNext is not the observation cardinality until an observation is written at the index
     /// just before a mint/swap/burn.
     /// @param observationCardinalityNextOld The previous value of the next observation cardinality

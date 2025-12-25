@@ -141,12 +141,13 @@ describe('UniswapV3Pool', () => {
       expect(observationIndex).to.eq(0)
       expect((await pool.slot0()).tick).to.eq(-6932)
     })
-    it('initializes the first observations slot', async () => {
+    // DEPRECATED: Oracle/TWAP functionality removed - observations are not written
+    it('observations slot is zero after initialization (Oracle removed)', async () => {
       await pool.initialize(encodePriceSqrt(1, 1))
       checkObservationEquals(await pool.observations(0), {
         secondsPerLiquidityCumulativeX128: 0,
-        initialized: true,
-        blockTimestamp: TEST_POOL_START_TIME,
+        initialized: false,
+        blockTimestamp: 0,
         tickCumulative: 0,
       })
     })
@@ -156,33 +157,17 @@ describe('UniswapV3Pool', () => {
     })
   })
 
+  // DEPRECATED: Oracle/TWAP functionality removed - increaseObservationCardinalityNext is now a no-op
   describe('#increaseObservationCardinalityNext', () => {
     it('can only be called after initialize', async () => {
-      await expect(pool.increaseObservationCardinalityNext(2)).to.be.revertedWith('LOK')
+      await expect(pool.increaseObservationCardinalityNext(2)).to.be.reverted
     })
-    it('emits an event including both old and new', async () => {
-      await pool.initialize(encodePriceSqrt(1, 1))
-      await expect(pool.increaseObservationCardinalityNext(2))
-        .to.emit(pool, 'IncreaseObservationCardinalityNext')
-        .withArgs(1, 2)
-    })
-    it('does not emit an event for no op call', async () => {
-      await pool.initialize(encodePriceSqrt(1, 1))
-      await pool.increaseObservationCardinalityNext(3)
-      await expect(pool.increaseObservationCardinalityNext(2)).to.not.emit(pool, 'IncreaseObservationCardinalityNext')
-    })
-    it('does not change cardinality next if less than current', async () => {
-      await pool.initialize(encodePriceSqrt(1, 1))
-      await pool.increaseObservationCardinalityNext(3)
-      await pool.increaseObservationCardinalityNext(2)
-      expect((await pool.slot0()).observationCardinalityNext).to.eq(3)
-    })
-    it('increases cardinality and cardinality next first time', async () => {
+    it('is a no-op after initialize', async () => {
       await pool.initialize(encodePriceSqrt(1, 1))
       await pool.increaseObservationCardinalityNext(2)
       const { observationCardinality, observationCardinalityNext } = await pool.slot0()
-      expect(observationCardinality).to.eq(1)
-      expect(observationCardinalityNext).to.eq(2)
+      expect(observationCardinality).to.eq(0)
+      expect(observationCardinalityNext).to.eq(0)
     })
   })
 
@@ -339,19 +324,20 @@ describe('UniswapV3Pool', () => {
             expect(feeGrowthOutside1X128).to.eq(0)
           })
 
-          it('does not write an observation', async () => {
+          // DEPRECATED: Oracle/TWAP functionality removed
+          it('observations remain zero (Oracle removed)', async () => {
             checkObservationEquals(await pool.observations(0), {
               tickCumulative: 0,
-              blockTimestamp: TEST_POOL_START_TIME,
-              initialized: true,
+              blockTimestamp: 0,
+              initialized: false,
               secondsPerLiquidityCumulativeX128: 0,
             })
             await pool.advanceTime(1)
             await mint(wallet.address, -240, 0, 100)
             checkObservationEquals(await pool.observations(0), {
               tickCumulative: 0,
-              blockTimestamp: TEST_POOL_START_TIME,
-              initialized: true,
+              blockTimestamp: 0,
+              initialized: false,
               secondsPerLiquidityCumulativeX128: 0,
             })
           })
@@ -404,20 +390,21 @@ describe('UniswapV3Pool', () => {
             expect(amount1, 'amount1').to.eq(31)
           })
 
-          it('writes an observation', async () => {
+          // DEPRECATED: Oracle/TWAP functionality removed
+          it('observations remain zero (Oracle removed)', async () => {
             checkObservationEquals(await pool.observations(0), {
               tickCumulative: 0,
-              blockTimestamp: TEST_POOL_START_TIME,
-              initialized: true,
+              blockTimestamp: 0,
+              initialized: false,
               secondsPerLiquidityCumulativeX128: 0,
             })
             await pool.advanceTime(1)
             await mint(wallet.address, minTick, maxTick, 100)
             checkObservationEquals(await pool.observations(0), {
-              tickCumulative: -23028,
-              blockTimestamp: TEST_POOL_START_TIME + 1,
-              initialized: true,
-              secondsPerLiquidityCumulativeX128: '107650226801941937191829992860413859',
+              tickCumulative: 0,
+              blockTimestamp: 0,
+              initialized: false,
+              secondsPerLiquidityCumulativeX128: 0,
             })
           })
         })
@@ -460,19 +447,20 @@ describe('UniswapV3Pool', () => {
             expect(amount1, 'amount1').to.eq(3)
           })
 
-          it('does not write an observation', async () => {
+          // DEPRECATED: Oracle/TWAP functionality removed
+          it('observations remain zero (Oracle removed)', async () => {
             checkObservationEquals(await pool.observations(0), {
               tickCumulative: 0,
-              blockTimestamp: TEST_POOL_START_TIME,
-              initialized: true,
+              blockTimestamp: 0,
+              initialized: false,
               secondsPerLiquidityCumulativeX128: 0,
             })
             await pool.advanceTime(1)
             await mint(wallet.address, -46080, -23040, 100)
             checkObservationEquals(await pool.observations(0), {
               tickCumulative: 0,
-              blockTimestamp: TEST_POOL_START_TIME,
-              initialized: true,
+              blockTimestamp: 0,
+              initialized: false,
               secondsPerLiquidityCumulativeX128: 0,
             })
           })
@@ -630,44 +618,27 @@ describe('UniswapV3Pool', () => {
     await mint(wallet.address, min, max, initializeLiquidityAmount)
   }
 
+  // DEPRECATED: Oracle/TWAP functionality removed - observe returns zero values
   describe('#observe', () => {
     beforeEach(() => initializeAtZeroTick(pool))
 
-    // zero tick
-    it('current tick accumulator increases by tick over time', async () => {
+    it('returns zero values (Oracle functionality removed)', async () => {
       let {
         tickCumulatives: [tickCumulative],
+        secondsPerLiquidityCumulativeX128s: [secondsPerLiquidity],
       } = await pool.observe([0])
       expect(tickCumulative).to.eq(0)
-      await pool.advanceTime(10)
-      ;({
-        tickCumulatives: [tickCumulative],
-      } = await pool.observe([0]))
-      expect(tickCumulative).to.eq(0)
+      expect(secondsPerLiquidity).to.eq(0)
     })
 
-    it('current tick accumulator after single swap', async () => {
-      // moves to tick -1
-      await swapExact0For1(1000, wallet.address)
-      await pool.advanceTime(4)
-      let {
-        tickCumulatives: [tickCumulative],
-      } = await pool.observe([0])
-      expect(tickCumulative).to.eq(-4)
-    })
-
-    it('current tick accumulator after two swaps', async () => {
-      await swapExact0For1(expandTo18Decimals(1).div(2), wallet.address)
-      expect((await pool.slot0()).tick).to.eq(-4452)
-      await pool.advanceTime(4)
-      await swapExact1For0(expandTo18Decimals(1).div(4), wallet.address)
-      expect((await pool.slot0()).tick).to.eq(-1558)
-      await pool.advanceTime(6)
-      let {
-        tickCumulatives: [tickCumulative],
-      } = await pool.observe([0])
-      // -4452*4 + -1558*6
-      expect(tickCumulative).to.eq(-27156)
+    it('returns array of zeros for multiple secondsAgos', async () => {
+      const { tickCumulatives, secondsPerLiquidityCumulativeX128s } = await pool.observe([0, 10, 100])
+      expect(tickCumulatives.length).to.eq(3)
+      expect(secondsPerLiquidityCumulativeX128s.length).to.eq(3)
+      for (let i = 0; i < 3; i++) {
+        expect(tickCumulatives[i]).to.eq(0)
+        expect(secondsPerLiquidityCumulativeX128s[i]).to.eq(0)
+      }
     })
   })
 
@@ -1584,42 +1555,25 @@ describe('UniswapV3Pool', () => {
     })
   })
 
+  // DEPRECATED: Oracle/TWAP functionality removed - increaseObservationCardinalityNext is now a no-op
   describe('#increaseObservationCardinalityNext', () => {
     it('cannot be called before initialization', async () => {
       await expect(pool.increaseObservationCardinalityNext(2)).to.be.reverted
     })
     describe('after initialization', () => {
       beforeEach('initialize the pool', () => pool.initialize(encodePriceSqrt(1, 1)))
-      it('oracle starting state after initialization', async () => {
+      it('oracle fields are zero after initialization (Oracle removed)', async () => {
         const { observationCardinality, observationIndex, observationCardinalityNext } = await pool.slot0()
-        expect(observationCardinality).to.eq(1)
+        expect(observationCardinality).to.eq(0)
         expect(observationIndex).to.eq(0)
-        expect(observationCardinalityNext).to.eq(1)
-        const {
-          secondsPerLiquidityCumulativeX128,
-          tickCumulative,
-          initialized,
-          blockTimestamp,
-        } = await pool.observations(0)
-        expect(secondsPerLiquidityCumulativeX128).to.eq(0)
-        expect(tickCumulative).to.eq(0)
-        expect(initialized).to.eq(true)
-        expect(blockTimestamp).to.eq(TEST_POOL_START_TIME)
+        expect(observationCardinalityNext).to.eq(0)
       })
-      it('increases observation cardinality next', async () => {
+      it('is a no-op (Oracle removed)', async () => {
         await pool.increaseObservationCardinalityNext(2)
         const { observationCardinality, observationIndex, observationCardinalityNext } = await pool.slot0()
-        expect(observationCardinality).to.eq(1)
+        expect(observationCardinality).to.eq(0)
         expect(observationIndex).to.eq(0)
-        expect(observationCardinalityNext).to.eq(2)
-      })
-      it('is no op if target is already exceeded', async () => {
-        await pool.increaseObservationCardinalityNext(5)
-        await pool.increaseObservationCardinalityNext(3)
-        const { observationCardinality, observationIndex, observationCardinalityNext } = await pool.slot0()
-        expect(observationCardinality).to.eq(1)
-        expect(observationIndex).to.eq(0)
-        expect(observationCardinalityNext).to.eq(5)
+        expect(observationCardinalityNext).to.eq(0)
       })
     })
   })
@@ -1693,6 +1647,7 @@ describe('UniswapV3Pool', () => {
     })
   })
 
+  // DEPRECATED: Oracle/TWAP functionality removed - snapshotCumulativesInside returns zeros
   describe('#snapshotCumulativesInside', () => {
     const tickLower = -TICK_SPACINGS[FeeAmount.MEDIUM]
     const tickUpper = TICK_SPACINGS[FeeAmount.MEDIUM]
@@ -1707,19 +1662,21 @@ describe('UniswapV3Pool', () => {
     it('throws if ticks are the same', async () => {
       await expect(pool.snapshotCumulativesInside(tickUpper, tickUpper)).to.be.reverted
     })
-    it('throws if tick lower is too low', async () => {
-      await expect(pool.snapshotCumulativesInside(getMinTick(tickSpacing) - 1, tickUpper)).be.reverted
+    it('does not throw for tick lower too low (returns zeros, Oracle removed)', async () => {
+      const { tickCumulativeInside, secondsPerLiquidityInsideX128, secondsInside } =
+        await pool.snapshotCumulativesInside(getMinTick(tickSpacing) - 1, tickUpper)
+      expect(tickCumulativeInside).to.eq(0)
+      expect(secondsPerLiquidityInsideX128).to.eq(0)
+      expect(secondsInside).to.eq(0)
     })
-    it('throws if tick upper is too high', async () => {
-      await expect(pool.snapshotCumulativesInside(tickLower, getMaxTick(tickSpacing) + 1)).be.reverted
+    it('does not throw for tick upper too high (returns zeros, Oracle removed)', async () => {
+      const { tickCumulativeInside, secondsPerLiquidityInsideX128, secondsInside } =
+        await pool.snapshotCumulativesInside(tickLower, getMaxTick(tickSpacing) + 1)
+      expect(tickCumulativeInside).to.eq(0)
+      expect(secondsPerLiquidityInsideX128).to.eq(0)
+      expect(secondsInside).to.eq(0)
     })
-    it('throws if tick lower is not initialized', async () => {
-      await expect(pool.snapshotCumulativesInside(tickLower - tickSpacing, tickUpper)).to.be.reverted
-    })
-    it('throws if tick upper is not initialized', async () => {
-      await expect(pool.snapshotCumulativesInside(tickLower, tickUpper + tickSpacing)).to.be.reverted
-    })
-    it('is zero immediately after initialize', async () => {
+    it('returns zeros (Oracle functionality removed)', async () => {
       const {
         secondsPerLiquidityInsideX128,
         tickCumulativeInside,
@@ -1729,131 +1686,16 @@ describe('UniswapV3Pool', () => {
       expect(tickCumulativeInside).to.eq(0)
       expect(secondsInside).to.eq(0)
     })
-    it('increases by expected amount when time elapses in the range', async () => {
+    it('still returns zeros after time passes (Oracle functionality removed)', async () => {
       await pool.advanceTime(5)
       const {
         secondsPerLiquidityInsideX128,
         tickCumulativeInside,
         secondsInside,
       } = await pool.snapshotCumulativesInside(tickLower, tickUpper)
-      expect(secondsPerLiquidityInsideX128).to.eq(BigNumber.from(5).shl(128).div(10))
-      expect(tickCumulativeInside, 'tickCumulativeInside').to.eq(0)
-      expect(secondsInside).to.eq(5)
-    })
-    it('does not account for time increase above range', async () => {
-      await pool.advanceTime(5)
-      await swapToHigherPrice(encodePriceSqrt(2, 1), wallet.address)
-      await pool.advanceTime(7)
-      const {
-        secondsPerLiquidityInsideX128,
-        tickCumulativeInside,
-        secondsInside,
-      } = await pool.snapshotCumulativesInside(tickLower, tickUpper)
-      expect(secondsPerLiquidityInsideX128).to.eq(BigNumber.from(5).shl(128).div(10))
-      expect(tickCumulativeInside, 'tickCumulativeInside').to.eq(0)
-      expect(secondsInside).to.eq(5)
-    })
-    it('does not account for time increase below range', async () => {
-      await pool.advanceTime(5)
-      await swapToLowerPrice(encodePriceSqrt(1, 2), wallet.address)
-      await pool.advanceTime(7)
-      const {
-        secondsPerLiquidityInsideX128,
-        tickCumulativeInside,
-        secondsInside,
-      } = await pool.snapshotCumulativesInside(tickLower, tickUpper)
-      expect(secondsPerLiquidityInsideX128).to.eq(BigNumber.from(5).shl(128).div(10))
-      // tick is 0 for 5 seconds, then not in range
-      expect(tickCumulativeInside, 'tickCumulativeInside').to.eq(0)
-      expect(secondsInside).to.eq(5)
-    })
-    it('time increase below range is not counted', async () => {
-      await swapToLowerPrice(encodePriceSqrt(1, 2), wallet.address)
-      await pool.advanceTime(5)
-      await swapToHigherPrice(encodePriceSqrt(1, 1), wallet.address)
-      await pool.advanceTime(7)
-      const {
-        secondsPerLiquidityInsideX128,
-        tickCumulativeInside,
-        secondsInside,
-      } = await pool.snapshotCumulativesInside(tickLower, tickUpper)
-      expect(secondsPerLiquidityInsideX128).to.eq(BigNumber.from(7).shl(128).div(10))
-      // tick is not in range then tick is 0 for 7 seconds
-      expect(tickCumulativeInside, 'tickCumulativeInside').to.eq(0)
-      expect(secondsInside).to.eq(7)
-    })
-    it('time increase above range is not counted', async () => {
-      await swapToHigherPrice(encodePriceSqrt(2, 1), wallet.address)
-      await pool.advanceTime(5)
-      await swapToLowerPrice(encodePriceSqrt(1, 1), wallet.address)
-      await pool.advanceTime(7)
-      const {
-        secondsPerLiquidityInsideX128,
-        tickCumulativeInside,
-        secondsInside,
-      } = await pool.snapshotCumulativesInside(tickLower, tickUpper)
-      expect(secondsPerLiquidityInsideX128).to.eq(BigNumber.from(7).shl(128).div(10))
-      expect((await pool.slot0()).tick).to.eq(-1) // justify the -7 tick cumulative inside value
-      expect(tickCumulativeInside, 'tickCumulativeInside').to.eq(-7)
-      expect(secondsInside).to.eq(7)
-    })
-    it('positions minted after time spent', async () => {
-      await pool.advanceTime(5)
-      await mint(wallet.address, tickUpper, getMaxTick(tickSpacing), 15)
-      await swapToHigherPrice(encodePriceSqrt(2, 1), wallet.address)
-      await pool.advanceTime(8)
-      const {
-        secondsPerLiquidityInsideX128,
-        tickCumulativeInside,
-        secondsInside,
-      } = await pool.snapshotCumulativesInside(tickUpper, getMaxTick(tickSpacing))
-      expect(secondsPerLiquidityInsideX128).to.eq(BigNumber.from(8).shl(128).div(15))
-      // the tick of 2/1 is 6931
-      // 8 seconds * 6931 = 55448
-      expect(tickCumulativeInside, 'tickCumulativeInside').to.eq(55448)
-      expect(secondsInside).to.eq(8)
-    })
-    it('overlapping liquidity is aggregated', async () => {
-      await mint(wallet.address, tickLower, getMaxTick(tickSpacing), 15)
-      await pool.advanceTime(5)
-      await swapToHigherPrice(encodePriceSqrt(2, 1), wallet.address)
-      await pool.advanceTime(8)
-      const {
-        secondsPerLiquidityInsideX128,
-        tickCumulativeInside,
-        secondsInside,
-      } = await pool.snapshotCumulativesInside(tickLower, tickUpper)
-      expect(secondsPerLiquidityInsideX128).to.eq(BigNumber.from(5).shl(128).div(25))
-      expect(tickCumulativeInside, 'tickCumulativeInside').to.eq(0)
-      expect(secondsInside).to.eq(5)
-    })
-    it('relative behavior of snapshots', async () => {
-      await pool.advanceTime(5)
-      await mint(wallet.address, getMinTick(tickSpacing), tickLower, 15)
-      const {
-        secondsPerLiquidityInsideX128: secondsPerLiquidityInsideX128Start,
-        tickCumulativeInside: tickCumulativeInsideStart,
-        secondsInside: secondsInsideStart,
-      } = await pool.snapshotCumulativesInside(getMinTick(tickSpacing), tickLower)
-      await pool.advanceTime(8)
-      // 13 seconds in starting range, then 3 seconds in newly minted range
-      await swapToLowerPrice(encodePriceSqrt(1, 2), wallet.address)
-      await pool.advanceTime(3)
-      const {
-        secondsPerLiquidityInsideX128,
-        tickCumulativeInside,
-        secondsInside,
-      } = await pool.snapshotCumulativesInside(getMinTick(tickSpacing), tickLower)
-      const expectedDiffSecondsPerLiquidity = BigNumber.from(3).shl(128).div(15)
-      expect(secondsPerLiquidityInsideX128.sub(secondsPerLiquidityInsideX128Start)).to.eq(
-        expectedDiffSecondsPerLiquidity
-      )
-      expect(secondsPerLiquidityInsideX128).to.not.eq(expectedDiffSecondsPerLiquidity)
-      // the tick is the one corresponding to the price of 1/2, or log base 1.0001 of 0.5
-      // this is -6932, and 3 seconds have passed, so the cumulative computed from the diff equals 6932 * 3
-      expect(tickCumulativeInside.sub(tickCumulativeInsideStart), 'tickCumulativeInside').to.eq(-20796)
-      expect(secondsInside - secondsInsideStart).to.eq(3)
-      expect(secondsInside).to.not.eq(3)
+      expect(secondsPerLiquidityInsideX128).to.eq(0)
+      expect(tickCumulativeInside).to.eq(0)
+      expect(secondsInside).to.eq(0)
     })
   })
 

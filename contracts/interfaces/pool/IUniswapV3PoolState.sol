@@ -97,6 +97,7 @@ interface IUniswapV3PoolState {
         );
 
     /// @notice Returns data about a specific observation index
+    /// @dev DEPRECATED: Oracle/TWAP functionality removed, returns zero values
     /// @param index The element of the observations array to fetch
     /// @dev You most likely want to use #observe() instead of this method to get an observation as of some amount of time
     /// ago, rather than at a specific index in the array.
