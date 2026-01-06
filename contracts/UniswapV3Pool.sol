@@ -306,6 +306,7 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
         if (liquidityDelta != 0) {
             flippedLower = ticks.update(
                 tickLower,
+                tickUpper,
                 tick,
                 liquidityDelta,
                 _feeGrowthGlobal0X128,
@@ -314,6 +315,7 @@ contract UniswapV3Pool is IUniswapV3Pool, NoDelegateCall {
                 maxLiquidityPerTick
             );
             flippedUpper = ticks.update(
+                tickLower,
                 tickUpper,
                 tick,
                 liquidityDelta,

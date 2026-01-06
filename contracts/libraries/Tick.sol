@@ -23,7 +23,7 @@ library Tick {
         // only has relative meaning, not absolute — the value depends on when the tick is initialized
         uint256 feeGrowthOutside0X128;
         uint256 feeGrowthOutside1X128;
-        // DEPRECATED: kept for interface compatibility, always 0
+        // the paired tick value - for lower tick stores upper, for upper tick stores lower
         int56 tickCumulativeOutside;
         // DEPRECATED: kept for interface compatibility, always 0
         uint160 secondsPerLiquidityOutsideX128;
@@ -94,7 +94,8 @@ library Tick {
 
     /// @notice Updates a tick and returns true if the tick was flipped from initialized to uninitialized, or vice versa
     /// @param self The mapping containing all tick information for initialized ticks
-    /// @param tick The tick that will be updated
+    /// @param tickLower The lower tick boundary of the position
+    /// @param tickUpper The upper tick boundary of the position
     /// @param tickCurrent The current tick
     /// @param liquidityDelta A new amount of liquidity to be added (subtracted) when tick is crossed from left to right (right to left)
     /// @param feeGrowthGlobal0X128 The all-time global fee growth, per unit of liquidity, in token0
@@ -104,7 +105,8 @@ library Tick {
     /// @return flipped Whether the tick was flipped from initialized to uninitialized, or vice versa
     function update(
         mapping(int24 => Tick.Info) storage self,
-        int24 tick,
+        int24 tickLower,
+        int24 tickUpper,
         int24 tickCurrent,
         int128 liquidityDelta,
         uint256 feeGrowthGlobal0X128,
@@ -112,6 +114,8 @@ library Tick {
         bool upper,
         uint128 maxLiquidity
     ) internal returns (bool flipped) {
+        int24 tick = upper ? tickUpper : tickLower;
+        int24 pairedTick = upper ? tickLower : tickUpper;
         Tick.Info storage info = self[tick];
 
         uint128 liquidityGrossBefore = info.liquidityGross;
@@ -127,7 +131,12 @@ library Tick {
                 info.feeGrowthOutside0X128 = feeGrowthGlobal0X128;
                 info.feeGrowthOutside1X128 = feeGrowthGlobal1X128;
             }
+            // set the paired tick on first initialization
+            info.tickCumulativeOutside = int56(pairedTick);
             info.initialized = true;
+        } else {
+            // verify the paired tick matches
+            require(info.tickCumulativeOutside == int56(pairedTick), 'TPM');
         }
 
         info.liquidityGross = liquidityGrossAfter;

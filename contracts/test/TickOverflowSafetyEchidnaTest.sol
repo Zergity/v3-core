@@ -45,6 +45,7 @@ contract TickOverflowSafetyEchidnaTest {
         bool flippedLower =
             ticks.update(
                 tickLower,
+                tickUpper,
                 tick,
                 liquidityDelta,
                 feeGrowthGlobal0X128,
@@ -54,6 +55,7 @@ contract TickOverflowSafetyEchidnaTest {
             );
         bool flippedUpper =
             ticks.update(
+                tickLower,
                 tickUpper,
                 tick,
                 liquidityDelta,

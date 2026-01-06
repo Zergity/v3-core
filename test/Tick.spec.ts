@@ -147,68 +147,76 @@ describe('Tick', () => {
   })
 
   describe('#update', async () => {
-    it('flips from zero to nonzero', async () => {
-      expect(await tickTest.callStatic.update(0, 0, 1, 0, 0, false, 3)).to.eq(true)
+    // Note: update now takes (tickLower, tickUpper, tickCurrent, ...) and derives the actual tick from the 'upper' flag
+    // When upper=false, it updates tickLower; when upper=true, it updates tickUpper
+    // Each tick can only be paired with one other tick (enforced via tickCumulativeOutside)
+
+    it('flips from zero to nonzero (lower tick)', async () => {
+      expect(await tickTest.callStatic.update(-1, 1, 0, 1, 0, 0, false, 3)).to.eq(true)
+    })
+    it('flips from zero to nonzero (upper tick)', async () => {
+      expect(await tickTest.callStatic.update(-1, 1, 0, 1, 0, 0, true, 3)).to.eq(true)
     })
     it('does not flip from nonzero to greater nonzero', async () => {
-      await tickTest.update(0, 0, 1, 0, 0, false, 3)
-      expect(await tickTest.callStatic.update(0, 0, 1, 0, 0, false, 3)).to.eq(false)
+      await tickTest.update(-1, 1, 0, 1, 0, 0, false, 3)
+      expect(await tickTest.callStatic.update(-1, 1, 0, 1, 0, 0, false, 3)).to.eq(false)
     })
     it('flips from nonzero to zero', async () => {
-      await tickTest.update(0, 0, 1, 0, 0, false, 3)
-      expect(await tickTest.callStatic.update(0, 0, -1, 0, 0, false, 3)).to.eq(true)
+      await tickTest.update(-1, 1, 0, 1, 0, 0, false, 3)
+      expect(await tickTest.callStatic.update(-1, 1, 0, -1, 0, 0, false, 3)).to.eq(true)
     })
     it('does not flip from nonzero to lesser nonzero', async () => {
-      await tickTest.update(0, 0, 2, 0, 0, false, 3)
-      expect(await tickTest.callStatic.update(0, 0, -1, 0, 0, false, 3)).to.eq(false)
-    })
-    it('does not flip from nonzero to lesser nonzero', async () => {
-      await tickTest.update(0, 0, 2, 0, 0, false, 3)
-      expect(await tickTest.callStatic.update(0, 0, -1, 0, 0, false, 3)).to.eq(false)
+      await tickTest.update(-1, 1, 0, 2, 0, 0, false, 3)
+      expect(await tickTest.callStatic.update(-1, 1, 0, -1, 0, 0, false, 3)).to.eq(false)
     })
     it('reverts if total liquidity gross is greater than max', async () => {
-      await tickTest.update(0, 0, 2, 0, 0, false, 3)
-      await tickTest.update(0, 0, 1, 0, 0, true, 3)
-      await expect(tickTest.update(0, 0, 1, 0, 0, false, 3)).to.be.revertedWith('LO')
+      await tickTest.update(-1, 1, 0, 2, 0, 0, false, 3)
+      await tickTest.update(-1, 1, 0, 1, 0, 0, false, 3)
+      await expect(tickTest.update(-1, 1, 0, 1, 0, 0, false, 3)).to.be.revertedWith('LO')
     })
-    it('nets the liquidity based on upper flag', async () => {
-      await tickTest.update(0, 0, 2, 0, 0, false, 10)
-      await tickTest.update(0, 0, 1, 0, 0, true, 10)
-      await tickTest.update(0, 0, 3, 0, 0, true, 10)
-      await tickTest.update(0, 0, 1, 0, 0, false, 10)
-      const { liquidityGross, liquidityNet } = await tickTest.ticks(0)
-      expect(liquidityGross).to.eq(2 + 1 + 3 + 1)
-      expect(liquidityNet).to.eq(2 - 1 - 3 + 1)
+    it('adds liquidity to lower tick (upper=false)', async () => {
+      await tickTest.update(-1, 1, 0, 2, 0, 0, false, 10)
+      await tickTest.update(-1, 1, 0, 3, 0, 0, false, 10)
+      const { liquidityGross, liquidityNet } = await tickTest.ticks(-1)
+      expect(liquidityGross).to.eq(5)
+      expect(liquidityNet).to.eq(5) // lower tick adds to liquidityNet
+    })
+    it('subtracts liquidity from upper tick (upper=true)', async () => {
+      await tickTest.update(-1, 1, 0, 2, 0, 0, true, 10)
+      await tickTest.update(-1, 1, 0, 3, 0, 0, true, 10)
+      const { liquidityGross, liquidityNet } = await tickTest.ticks(1)
+      expect(liquidityGross).to.eq(5)
+      expect(liquidityNet).to.eq(-5) // upper tick subtracts from liquidityNet
     })
     it('reverts on overflow liquidity gross', async () => {
-      await tickTest.update(0, 0, MaxUint128.div(2).sub(1), 0, 0, false, MaxUint128)
-      await expect(tickTest.update(0, 0, MaxUint128.div(2).sub(1), 0, 0, false, MaxUint128)).to.be.reverted
+      await tickTest.update(-1, 1, 0, MaxUint128.div(2).sub(1), 0, 0, false, MaxUint128)
+      await expect(tickTest.update(-1, 1, 0, MaxUint128.div(2).sub(1), 0, 0, false, MaxUint128)).to.be.reverted
     })
     it('assumes all growth happens below ticks lte current tick', async () => {
-      await tickTest.update(1, 1, 1, 1, 2, false, MaxUint128)
+      await tickTest.update(-1, 1, 1, 1, 1, 2, false, MaxUint128)
       const {
         feeGrowthOutside0X128,
         feeGrowthOutside1X128,
         initialized,
-      } = await tickTest.ticks(1)
+      } = await tickTest.ticks(-1)
       expect(feeGrowthOutside0X128).to.eq(1)
       expect(feeGrowthOutside1X128).to.eq(2)
       expect(initialized).to.eq(true)
     })
     it('does not set any growth fields if tick is already initialized', async () => {
-      await tickTest.update(1, 1, 1, 1, 2, false, MaxUint128)
-      await tickTest.update(1, 1, 1, 6, 7, false, MaxUint128)
+      await tickTest.update(-1, 1, 1, 1, 1, 2, false, MaxUint128)
+      await tickTest.update(-1, 1, 1, 1, 6, 7, false, MaxUint128)
       const {
         feeGrowthOutside0X128,
         feeGrowthOutside1X128,
         initialized,
-      } = await tickTest.ticks(1)
+      } = await tickTest.ticks(-1)
       expect(feeGrowthOutside0X128).to.eq(1)
       expect(feeGrowthOutside1X128).to.eq(2)
       expect(initialized).to.eq(true)
     })
     it('does not set any growth fields for ticks gt current tick', async () => {
-      await tickTest.update(2, 1, 1, 1, 2, false, MaxUint128)
+      await tickTest.update(-1, 2, 1, 1, 1, 2, true, MaxUint128)
       const {
         feeGrowthOutside0X128,
         feeGrowthOutside1X128,
@@ -217,6 +225,20 @@ describe('Tick', () => {
       expect(feeGrowthOutside0X128).to.eq(0)
       expect(feeGrowthOutside1X128).to.eq(0)
       expect(initialized).to.eq(true)
+    })
+    it('rejects tick pair mismatch', async () => {
+      await tickTest.update(-1, 1, 0, 1, 0, 0, false, MaxUint128)
+      // Try to use tick -1 with a different upper tick
+      await expect(tickTest.update(-1, 2, 0, 1, 0, 0, false, MaxUint128)).to.be.revertedWith('TPM')
+    })
+    it('stores paired tick in tickCumulativeOutside', async () => {
+      await tickTest.update(-1, 1, 0, 1, 0, 0, false, MaxUint128)
+      const lowerTick = await tickTest.ticks(-1)
+      expect(lowerTick.tickCumulativeOutside).to.eq(1) // lower tick stores upper tick
+
+      await tickTest.update(-1, 1, 0, 1, 0, 0, true, MaxUint128)
+      const upperTick = await tickTest.ticks(1)
+      expect(upperTick.tickCumulativeOutside).to.eq(-1) // upper tick stores lower tick
     })
   })
 

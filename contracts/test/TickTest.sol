@@ -28,7 +28,8 @@ contract TickTest {
     }
 
     function update(
-        int24 tick,
+        int24 tickLower,
+        int24 tickUpper,
         int24 tickCurrent,
         int128 liquidityDelta,
         uint256 feeGrowthGlobal0X128,
@@ -38,7 +39,8 @@ contract TickTest {
     ) external returns (bool flipped) {
         return
             ticks.update(
-                tick,
+                tickLower,
+                tickUpper,
                 tickCurrent,
                 liquidityDelta,
                 feeGrowthGlobal0X128,
