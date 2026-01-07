@@ -318,29 +318,8 @@ const TEST_POOLS: PoolTestCase[] = [
       },
     ],
   },
-  {
-    description: 'medium fee, 1:1 price, additional liquidity around current price',
-    feeAmount: FeeAmount.MEDIUM,
-    tickSpacing: TICK_SPACINGS[FeeAmount.MEDIUM],
-    startingPrice: encodePriceSqrt(1, 1),
-    positions: [
-      {
-        tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        liquidity: expandTo18Decimals(2),
-      },
-      {
-        tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        tickUpper: -TICK_SPACINGS[FeeAmount.MEDIUM],
-        liquidity: expandTo18Decimals(2),
-      },
-      {
-        tickLower: TICK_SPACINGS[FeeAmount.MEDIUM],
-        tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-        liquidity: expandTo18Decimals(2),
-      },
-    ],
-  },
+  // NOTE: Removed test case "medium fee, 1:1 price, additional liquidity around current price"
+  // because it used overlapping tick ranges which are no longer allowed (tick pairing restriction)
   {
     description: 'low fee, large liquidity around current price (stable swap)',
     feeAmount: FeeAmount.LOW,

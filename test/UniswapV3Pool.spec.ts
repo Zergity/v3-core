@@ -176,9 +176,11 @@ describe('UniswapV3Pool', () => {
       await expect(mint(wallet.address, -tickSpacing, tickSpacing, 1)).to.be.revertedWith('LOK')
     })
     describe('after initialization', () => {
+      // NOTE: Using minTick + tickSpacing*2 and maxTick - tickSpacing*2 to leave room for edge tick tests
+      // This avoids tick pairing conflicts with tests that need to use minTick/maxTick directly
       beforeEach('initialize the pool at price of 10:1', async () => {
         await pool.initialize(encodePriceSqrt(1, 10))
-        await mint(wallet.address, minTick, maxTick, 3161)
+        await mint(wallet.address, minTick + tickSpacing * 2, maxTick - tickSpacing * 2, 3161)
       })
 
       describe('failure cases', () => {
@@ -267,21 +269,15 @@ describe('UniswapV3Pool', () => {
           })
 
           it('adds liquidity to liquidityGross', async () => {
+            // NOTE: With tick pairing restriction, multiple positions can share the same tick pair
+            // but different pairs cannot share any tick
             await mint(wallet.address, -240, 0, 100)
             expect((await pool.ticks(-240)).liquidityGross).to.eq(100)
             expect((await pool.ticks(0)).liquidityGross).to.eq(100)
-            expect((await pool.ticks(tickSpacing)).liquidityGross).to.eq(0)
-            expect((await pool.ticks(tickSpacing * 2)).liquidityGross).to.eq(0)
-            await mint(wallet.address, -240, tickSpacing, 150)
+            // Add more liquidity to the same tick pair
+            await mint(wallet.address, -240, 0, 150)
             expect((await pool.ticks(-240)).liquidityGross).to.eq(250)
-            expect((await pool.ticks(0)).liquidityGross).to.eq(100)
-            expect((await pool.ticks(tickSpacing)).liquidityGross).to.eq(150)
-            expect((await pool.ticks(tickSpacing * 2)).liquidityGross).to.eq(0)
-            await mint(wallet.address, 0, tickSpacing * 2, 60)
-            expect((await pool.ticks(-240)).liquidityGross).to.eq(250)
-            expect((await pool.ticks(0)).liquidityGross).to.eq(160)
-            expect((await pool.ticks(tickSpacing)).liquidityGross).to.eq(150)
-            expect((await pool.ticks(tickSpacing * 2)).liquidityGross).to.eq(60)
+            expect((await pool.ticks(0)).liquidityGross).to.eq(250)
           })
 
           it('removes liquidity from liquidityGross', async () => {
@@ -309,19 +305,25 @@ describe('UniswapV3Pool', () => {
             expect(feeGrowthOutside0X128).to.eq(0)
             expect(feeGrowthOutside1X128).to.eq(0)
           })
-          it('only clears the tick that is not used at all', async () => {
+          it('clears tick when all positions in pair are removed', async () => {
+            // NOTE: With tick pairing, each tick pair is independent
+            // When all liquidity is removed from a pair, both ticks are cleared
             await mint(wallet.address, -240, 0, 100)
-            await mint(wallet.address, -tickSpacing, 0, 250)
-            await pool.burn(-240, 0, 100)
+            await mint(wallet.address, -240, 0, 150)  // Add more to same pair
 
-            let { liquidityGross, feeGrowthOutside0X128, feeGrowthOutside1X128 } = await pool.ticks(-240)
+            // Remove only 100 - ticks should still have liquidity
+            await pool.burn(-240, 0, 100)
+            let { liquidityGross } = await pool.ticks(-240)
+            expect(liquidityGross).to.eq(150)
+            ;({ liquidityGross } = await pool.ticks(0))
+            expect(liquidityGross).to.eq(150)
+
+            // Remove remaining - ticks should be cleared
+            await pool.burn(-240, 0, 150)
+            ;({ liquidityGross } = await pool.ticks(-240))
             expect(liquidityGross).to.eq(0)
-            expect(feeGrowthOutside0X128).to.eq(0)
-            expect(feeGrowthOutside1X128).to.eq(0)
-            ;({ liquidityGross, feeGrowthOutside0X128, feeGrowthOutside1X128 } = await pool.ticks(-tickSpacing))
-            expect(liquidityGross).to.eq(250)
-            expect(feeGrowthOutside0X128).to.eq(0)
-            expect(feeGrowthOutside1X128).to.eq(0)
+            ;({ liquidityGross } = await pool.ticks(0))
+            expect(liquidityGross).to.eq(0)
           })
 
           // DEPRECATED: Oracle/TWAP functionality removed
@@ -582,31 +584,9 @@ describe('UniswapV3Pool', () => {
       await checkTickIsClear(tickUpper)
     })
 
-    it('clears only the lower tick if upper is still used', async () => {
-      const tickLower = minTick + tickSpacing
-      const tickUpper = maxTick - tickSpacing
-      // some activity that would make the ticks non-zero
-      await pool.advanceTime(10)
-      await mint(wallet.address, tickLower, tickUpper, 1)
-      await mint(wallet.address, tickLower + tickSpacing, tickUpper, 1)
-      await swapExact0For1(expandTo18Decimals(1), wallet.address)
-      await pool.burn(tickLower, tickUpper, 1)
-      await checkTickIsClear(tickLower)
-      await checkTickIsNotClear(tickUpper)
-    })
-
-    it('clears only the upper tick if lower is still used', async () => {
-      const tickLower = minTick + tickSpacing
-      const tickUpper = maxTick - tickSpacing
-      // some activity that would make the ticks non-zero
-      await pool.advanceTime(10)
-      await mint(wallet.address, tickLower, tickUpper, 1)
-      await mint(wallet.address, tickLower, tickUpper - tickSpacing, 1)
-      await swapExact0For1(expandTo18Decimals(1), wallet.address)
-      await pool.burn(tickLower, tickUpper, 1)
-      await checkTickIsNotClear(tickLower)
-      await checkTickIsClear(tickUpper)
-    })
+    // NOTE: Removed tests "clears only the lower/upper tick if other is still used"
+    // These tests used overlapping tick ranges which are no longer allowed (tick pairing restriction)
+    // Each tick can now only be part of one tick pair
   })
 
   // the combined amount of liquidity that the pool is initialized with (including the 1 minimum liquidity that is burned)
@@ -1318,6 +1298,7 @@ describe('UniswapV3Pool', () => {
   })
 
   // https://github.com/Uniswap/uniswap-v3-core/issues/214
+  // NOTE: Modified to use single position instead of overlapping positions due to tick pairing restriction
   it('tick transition cannot run twice if zero for one swap ends at fractional price just below tick', async () => {
     pool = await createPool(FeeAmount.MEDIUM, 1)
     const sqrtTickMath = (await (await ethers.getContractFactory('TickMathTest')).deploy()) as TickMathTest
@@ -1329,13 +1310,10 @@ describe('UniswapV3Pool', () => {
     expect(await pool.liquidity(), 'current pool liquidity is 1').to.eq(0)
     expect((await pool.slot0()).tick, 'pool tick is -24081').to.eq(-24081)
 
-    // add a bunch of liquidity around current price
+    // add liquidity around current price
     const liquidity = expandTo18Decimals(1000)
     await mint(wallet.address, -24082, -24080, liquidity)
-    expect(await pool.liquidity(), 'current pool liquidity is now liquidity + 1').to.eq(liquidity)
-
-    await mint(wallet.address, -24082, -24081, liquidity)
-    expect(await pool.liquidity(), 'current pool liquidity is still liquidity + 1').to.eq(liquidity)
+    expect(await pool.liquidity(), 'current pool liquidity is now liquidity').to.eq(liquidity)
 
     // check the math works out to moving the price down 1, sending no amount out, and having some amount remaining
     {
@@ -1361,8 +1339,10 @@ describe('UniswapV3Pool', () => {
     const { tick, sqrtPriceX96 } = await pool.slot0()
 
     expect(tick, 'pool is at the next tick').to.eq(-24082)
-    expect(sqrtPriceX96, 'pool price is still on the p0 boundary').to.eq(p0.sub(1))
-    expect(await pool.liquidity(), 'pool has run tick transition and liquidity changed').to.eq(liquidity.mul(2))
+    // NOTE: With single position, price continues past p0.sub(1) since there's no additional liquidity
+    expect(sqrtPriceX96, 'pool price moved past p0').to.be.lt(p0)
+    // Position is from -24082 to -24080, so at tick -24082 it's still in range
+    expect(await pool.liquidity(), 'pool has run tick transition').to.eq(liquidity)
   })
 
   describe('#flash', () => {
